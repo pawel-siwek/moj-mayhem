@@ -21,6 +21,16 @@
 	--sy: 0;
 }
 
+html[data-theme='dawn'] {
+	--bg: #0d1b2a;
+	--crane: #58a6ff;
+	--crane-dim: #388bfd;
+	--amber: #f2cc60;
+	--rust: #8f6846;
+	--steel: #a8c7e8;
+	--text: #e6f1ff;
+}
+
 *,
 *::before,
 *::after {
@@ -554,6 +564,13 @@ button:active:not(:disabled) {
 button:disabled {
 	opacity: 0.5;
 	cursor: progress;
+}
+
+.theme-toggle {
+	display: block;
+	margin: 0.75rem auto 0;
+	padding: 0.5rem 0.75rem;
+	font-size: 0.5rem;
 }
 
 /* ---------- Scena: suwnice bramowe ---------- */
