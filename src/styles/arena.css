@@ -1,0 +1,974 @@
+/* Mayhem w Stoczni — pixelartowa stocznia nocą.
+   Globalny arkusz: elementy wyników tworzy skrypt, więc style zawężone przez Astro by ich nie objęły. */
+
+:root {
+	--bg: #0d1117; /* noc nad stocznią */
+	--crane: #3fb950; /* zieleń dźwigów */
+	--crane-dim: #2ea043;
+	--amber: #e3b341; /* dach Żurawia, skrzynie */
+	--rust: #b45309; /* cegła, rdza */
+	--steel: #8b949e; /* konstrukcje, nabrzeże */
+	--text: #e6edf3;
+
+	--font-pixel: 'Press Start 2P', ui-monospace, monospace;
+	--font-mono: 'JetBrains Mono', ui-monospace, monospace;
+	--glow: color-mix(in srgb, var(--amber) 40%, transparent);
+	--panel: color-mix(in srgb, var(--bg) 85%, var(--rust));
+	--cell: 10px;
+	--water-h: 88px;
+	--lattice: 20px;
+	--px: 0;
+	--sy: 0;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	color: var(--text);
+	font-family: var(--font-mono);
+	line-height: 1.5;
+	background-color: var(--bg);
+	background-image:
+		linear-gradient(color-mix(in srgb, var(--steel) 6%, transparent) 1px, transparent 1px),
+		linear-gradient(90deg, color-mix(in srgb, var(--steel) 6%, transparent) 1px, transparent 1px);
+	background-size: 8px 8px;
+	background-attachment: fixed;
+}
+
+main {
+	position: relative;
+	max-width: 48rem;
+	margin: 0 auto;
+	padding: 1.5rem 1rem calc(var(--water-h) + 2rem);
+	overflow-x: clip;
+}
+
+h1,
+h2,
+label,
+button,
+.verdict,
+.vs-box {
+	font-family: var(--font-pixel);
+	font-weight: 400;
+}
+
+/* ---------- Tło: niebo, panorama, port ---------- */
+
+.sky {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.stars {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 2px;
+	height: 2px;
+	background: var(--text);
+	opacity: 0.55;
+	box-shadow:
+		6vw 7vh 0 var(--text), 14vw 18vh 0 var(--steel), 23vw 5vh 0 var(--text),
+		31vw 24vh 0 var(--steel), 42vw 11vh 0 var(--text), 53vw 4vh 0 var(--steel),
+		61vw 19vh 0 var(--text), 70vw 8vh 0 var(--text), 78vw 26vh 0 var(--steel),
+		86vw 12vh 0 var(--text), 93vw 5vh 0 var(--steel), 97vw 22vh 0 var(--text),
+		10vw 31vh 0 var(--steel), 48vw 30vh 0 var(--steel), 66vw 33vh 0 var(--text);
+	animation: twinkle 6s steps(2) infinite;
+}
+
+@keyframes twinkle {
+	50% {
+		opacity: 0.3;
+	}
+}
+
+.sky-layer {
+	position: absolute;
+	left: 50%;
+	bottom: calc(var(--water-h) - 2px);
+	will-change: transform;
+	transition: transform 0.2s linear;
+}
+
+.sky-layer svg {
+	display: block;
+	width: auto;
+	height: clamp(110px, 26vh, 230px);
+}
+
+.layer-far {
+	transform: translateX(calc(-50% + var(--px) * -6px + var(--sy) * -0.015px));
+}
+
+.layer-near {
+	transform: translateX(calc(-50% + var(--px) * -14px + var(--sy) * -0.04px));
+}
+
+.layer-far svg {
+	height: clamp(90px, 21vh, 180px);
+}
+
+.sk-brick {
+	fill: var(--rust);
+	opacity: 0.22;
+}
+
+.sk-gold {
+	fill: var(--amber);
+	opacity: 0.4;
+}
+
+.sk-lit {
+	fill: var(--amber);
+	opacity: 0.55;
+}
+
+.skyline-far .sk-brick {
+	fill: var(--steel);
+	opacity: 0.1;
+}
+
+.sky-landmarks {
+	position: absolute;
+	inset: 0;
+	transform: translateX(calc(var(--px) * -10px + var(--sy) * -0.03px));
+	transition: transform 0.2s linear;
+}
+
+.zuraw,
+.monument {
+	position: absolute;
+	bottom: calc(var(--water-h) - 2px);
+	width: auto;
+}
+
+.zuraw {
+	right: 5%;
+	height: clamp(90px, 20vh, 170px);
+	opacity: 0.5;
+}
+
+.monument {
+	left: 4%;
+	height: clamp(90px, 22vh, 190px);
+	fill: var(--steel);
+	opacity: 0.3;
+}
+
+.z-brick {
+	fill: var(--rust);
+}
+.z-wood {
+	fill: color-mix(in srgb, var(--rust) 50%, var(--bg));
+}
+.z-roof {
+	fill: var(--amber);
+}
+.z-dark-roof {
+	fill: color-mix(in srgb, var(--rust) 60%, var(--bg));
+}
+.z-void {
+	fill: var(--bg);
+}
+.z-lit {
+	fill: var(--amber);
+}
+.z-steel {
+	fill: var(--steel);
+}
+
+/* Latarnia, statek, mewy, Motława */
+
+.lighthouse {
+	position: absolute;
+	right: 22%;
+	bottom: calc(var(--water-h) - 4px);
+	width: 18px;
+	opacity: 0.6;
+}
+
+.lighthouse svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.lh-base {
+	fill: var(--steel);
+}
+.lh-rust {
+	fill: var(--rust);
+}
+.lh-white {
+	fill: var(--text);
+}
+.lh-lamp {
+	fill: var(--amber);
+}
+
+.lighthouse-beam {
+	position: absolute;
+	top: 4px;
+	right: 14px;
+	width: 38vw;
+	height: 28px;
+	background: linear-gradient(270deg, var(--glow), transparent);
+	clip-path: polygon(100% 40%, 0 0, 0 100%, 100% 60%);
+	opacity: 0.1;
+	animation: lighthouse 7s ease-in-out infinite alternate;
+}
+
+@keyframes lighthouse {
+	to {
+		opacity: 0.4;
+	}
+}
+
+.ship {
+	position: absolute;
+	left: 0;
+	bottom: calc(var(--water-h) - 14px);
+	width: 96px;
+	opacity: 0.7;
+	animation: sail 80s linear infinite;
+}
+
+.ship svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.sh-hull {
+	fill: color-mix(in srgb, var(--steel) 45%, var(--bg));
+}
+.sh-rust {
+	fill: var(--rust);
+}
+.sh-steel {
+	fill: var(--steel);
+}
+.sh-amber {
+	fill: color-mix(in srgb, var(--amber) 70%, var(--bg));
+}
+.sh-lit {
+	fill: var(--amber);
+}
+
+@keyframes sail {
+	from {
+		transform: translateX(-120px);
+	}
+	to {
+		transform: translateX(calc(100vw + 120px));
+	}
+}
+
+.gull {
+	position: absolute;
+	left: 0;
+	width: 16px;
+	opacity: 0.35;
+	animation: glide 50s linear infinite;
+}
+
+.gull svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	fill: var(--text);
+}
+
+.wing-up {
+	animation: flap 0.9s steps(1) infinite;
+}
+
+.wing-down {
+	animation: flap 0.9s steps(1) infinite reverse;
+	opacity: 0;
+}
+
+@keyframes flap {
+	0% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0;
+	}
+}
+
+@keyframes glide {
+	0% {
+		transform: translate(-5vw, 0);
+	}
+	50% {
+		transform: translate(50vw, -12px);
+	}
+	100% {
+		transform: translate(105vw, 0);
+	}
+}
+
+.water {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: var(--water-h);
+	overflow: hidden;
+	background: linear-gradient(var(--bg), color-mix(in srgb, var(--bg) 88%, var(--steel)));
+	border-top: 2px solid color-mix(in srgb, var(--steel) 30%, var(--bg));
+}
+
+.water::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: -44px;
+	right: -44px;
+	background: linear-gradient(color-mix(in srgb, var(--steel) 22%, transparent) 2px, transparent 2px) 0 0 / 100% 12px;
+	-webkit-mask-image: repeating-linear-gradient(90deg, #000 0 12px, transparent 12px 22px);
+	mask-image: repeating-linear-gradient(90deg, #000 0 12px, transparent 12px 22px);
+	animation: waves 3.2s steps(4) infinite;
+}
+
+.water::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(ellipse 2px 30px at 12% 0, var(--glow), transparent),
+		radial-gradient(ellipse 2px 24px at 31% 0, var(--glow), transparent),
+		radial-gradient(ellipse 2px 34px at 47% 0, var(--glow), transparent),
+		radial-gradient(ellipse 2px 26px at 66% 0, var(--glow), transparent),
+		radial-gradient(ellipse 2px 30px at 83% 0, var(--glow), transparent);
+	animation: shimmer 5s ease-in-out infinite alternate;
+}
+
+@keyframes waves {
+	to {
+		transform: translateX(-22px);
+	}
+}
+
+@keyframes shimmer {
+	from {
+		opacity: 0.45;
+	}
+	to {
+		opacity: 0.9;
+	}
+}
+
+/* ---------- Nagłówek: brama stoczni, tytuł, herb ---------- */
+
+.gate {
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	margin: 0 auto 1.25rem;
+	width: fit-content;
+}
+
+.gate-pylon {
+	width: 18px;
+	height: 56px;
+	background: var(--rust);
+	border-top: 6px solid var(--steel);
+	box-shadow: inset -4px 0 0 color-mix(in srgb, var(--bg) 35%, transparent);
+}
+
+.gate-sign {
+	margin: 0 -2px 18px;
+	padding: 8px 14px;
+	text-align: center;
+	font-family: var(--font-pixel);
+	font-size: 0.55rem;
+	line-height: 1.6;
+	color: var(--text);
+	background: var(--rust);
+	border: 3px solid var(--steel);
+	box-shadow: 0 0 0 2px var(--bg);
+}
+
+.gate-sign small {
+	display: block;
+	font-size: 0.45rem;
+	color: var(--amber);
+}
+
+.title-wrap {
+	position: relative;
+	text-align: center;
+	isolation: isolate;
+}
+
+.title-wrap::before {
+	content: '';
+	position: absolute;
+	inset: -36px -12%;
+	z-index: -1;
+	background: radial-gradient(ellipse at center, var(--glow), transparent 65%);
+	animation: searchlight 5s ease-in-out infinite alternate;
+}
+
+@keyframes searchlight {
+	from {
+		opacity: 0.55;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+h1 {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.9rem;
+	margin: 0;
+	font-size: clamp(1.1rem, 4.6vw, 2rem);
+	line-height: 1.3;
+	color: var(--amber);
+	text-shadow:
+		3px 3px 0 var(--rust),
+		0 0 24px var(--glow);
+}
+
+.crest {
+	flex: none;
+	width: clamp(28px, 6vw, 40px);
+	height: auto;
+}
+
+.crest-crown {
+	fill: var(--amber);
+}
+.crest-shield {
+	fill: var(--rust);
+}
+.crest-cross {
+	fill: var(--text);
+}
+
+.subtitle {
+	margin: 1rem 0 0.25rem;
+	text-align: center;
+	color: var(--text);
+}
+
+.place {
+	margin: 0;
+	text-align: center;
+	font-size: 0.8rem;
+	color: var(--steel);
+}
+
+.amber-bit {
+	display: inline-block;
+	width: 4px;
+	height: 4px;
+	margin: 0 10px 0 6px;
+	vertical-align: middle;
+	background: var(--amber);
+	box-shadow:
+		4px 0 0 var(--amber),
+		0 4px 0 var(--amber),
+		-4px 4px 0 var(--rust),
+		4px 4px 0 var(--amber),
+		0 -4px 0 var(--rust);
+}
+
+/* ---------- Konsola formularza ---------- */
+
+.console {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	align-items: flex-end;
+	margin: 1.75rem 0 0;
+	padding: 1rem;
+	background: var(--panel);
+	border: 3px solid var(--steel);
+	box-shadow: 0 0 0 2px var(--bg);
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	flex: 1 1 11rem;
+}
+
+label {
+	font-size: 0.6rem;
+	color: var(--amber);
+}
+
+input {
+	width: 100%;
+	padding: 0.6rem 0.75rem;
+	font: inherit;
+	color: var(--text);
+	background: var(--bg);
+	border: 2px solid var(--steel);
+	border-radius: 0;
+}
+
+input:focus {
+	outline: none;
+	border-color: var(--amber);
+	box-shadow: 0 0 0 2px var(--rust), 0 0 12px var(--glow);
+}
+
+button {
+	padding: 0.8rem 1.2rem;
+	font-size: 0.7rem;
+	color: var(--bg);
+	background: var(--amber);
+	border: 0;
+	border-radius: 0;
+	cursor: pointer;
+	box-shadow: 0 4px 0 var(--rust), 0 0 0 2px var(--bg);
+}
+
+button:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--amber) 85%, var(--text));
+}
+
+button:active:not(:disabled) {
+	transform: translateY(2px);
+	box-shadow: 0 2px 0 var(--rust), 0 0 0 2px var(--bg);
+}
+
+button:disabled {
+	opacity: 0.5;
+	cursor: progress;
+}
+
+/* ---------- Scena: suwnice bramowe ---------- */
+
+.stage {
+	position: relative;
+	margin-top: 2.5rem;
+	padding: 40px 36px 0;
+}
+
+.gantry-beam,
+.gantry-leg {
+	position: absolute;
+	background-color: color-mix(in srgb, var(--bg) 75%, var(--crane-dim));
+	background-image:
+		linear-gradient(45deg, transparent 44%, var(--crane-dim) 44% 56%, transparent 56%),
+		linear-gradient(-45deg, transparent 44%, var(--crane-dim) 44% 56%, transparent 56%);
+	background-size: var(--lattice) var(--lattice);
+}
+
+.gantry-beam {
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 28px;
+	border-block: 4px solid var(--crane);
+}
+
+.gantry-leg {
+	top: 0;
+	bottom: 0;
+	width: 28px;
+	border-inline: 4px solid var(--crane);
+}
+
+.gantry-leg.left {
+	left: 0;
+}
+.gantry-leg.right {
+	right: 0;
+}
+
+.gantry-leg::after {
+	content: '';
+	position: absolute;
+	left: -8px;
+	right: -8px;
+	bottom: -4px;
+	height: 8px;
+	background: var(--steel);
+}
+
+.trolley {
+	position: absolute;
+	top: -2px;
+	left: calc(50% - 14px);
+	width: 28px;
+	height: 24px;
+	background: var(--crane);
+	border: 3px solid var(--bg);
+	box-shadow: 0 0 0 2px var(--crane-dim);
+	animation: trolley 9s ease-in-out infinite alternate;
+}
+
+@keyframes trolley {
+	from {
+		transform: translateX(-14px);
+	}
+	to {
+		transform: translateX(14px);
+	}
+}
+
+.beacon {
+	position: absolute;
+	top: -10px;
+	right: 8px;
+	width: 6px;
+	height: 6px;
+	background: var(--amber);
+	box-shadow: 0 0 8px var(--amber);
+	animation: blink 1.6s steps(2) infinite;
+}
+
+@keyframes blink {
+	50% {
+		opacity: 0.2;
+	}
+}
+
+.quay {
+	position: relative;
+	height: 14px;
+	margin: 0 -8px;
+	background:
+		linear-gradient(90deg, var(--bg) 2px, transparent 2px) 0 0 / 16px 100%,
+		var(--steel);
+	border-top: 4px solid color-mix(in srgb, var(--text) 25%, var(--steel));
+}
+
+#results {
+	min-height: 5rem;
+}
+
+.status,
+.error {
+	margin: 1rem 0;
+	padding: 0.75rem 1rem;
+}
+
+.status {
+	text-align: center;
+	color: var(--steel);
+}
+
+.error {
+	position: relative;
+	padding-left: 1.75rem;
+	background: color-mix(in srgb, var(--rust) 25%, var(--bg));
+	border: 2px solid var(--rust);
+}
+
+.error::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 10px;
+	background: repeating-linear-gradient(45deg, var(--amber) 0 6px, var(--bg) 6px 12px);
+}
+
+/* ---------- Loader: hak dźwigu ---------- */
+
+.loader {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	padding: 1rem 0;
+	color: var(--steel);
+}
+
+.loader-bay {
+	position: relative;
+	width: 40px;
+	height: 72px;
+	overflow: hidden;
+}
+
+.loader-lift {
+	position: absolute;
+	top: -14px;
+	left: 50%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	animation: lift 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes lift {
+	from {
+		transform: translate(-50%, 0);
+	}
+	to {
+		transform: translate(-50%, -34px);
+	}
+}
+
+.rope {
+	width: 3px;
+	height: 22px;
+	background: var(--steel);
+}
+
+.loader-lift .rope {
+	height: 60px;
+}
+
+.hook {
+	width: 14px;
+	height: 14px;
+	border: 3px solid var(--steel);
+	border-top: 0;
+	border-left-color: transparent;
+}
+
+.loader-crate {
+	width: 16px;
+	height: 12px;
+	background: var(--amber);
+	border: 2px solid var(--rust);
+}
+
+/* ---------- Karty graczy: skrzynie magazynowe ---------- */
+
+.cards {
+	display: flex;
+	flex-direction: column;
+}
+
+.card {
+	position: relative;
+	margin: 0 0 24px;
+	padding: 16px 18px;
+	background-color: var(--panel);
+	background-image:
+		linear-gradient(var(--steel), var(--steel)),
+		linear-gradient(var(--steel), var(--steel)),
+		linear-gradient(var(--steel), var(--steel)),
+		linear-gradient(var(--steel), var(--steel)),
+		linear-gradient(var(--steel), var(--steel)),
+		linear-gradient(var(--steel), var(--steel)),
+		linear-gradient(var(--steel), var(--steel)),
+		linear-gradient(var(--steel), var(--steel));
+	background-repeat: no-repeat;
+	background-size: 12px 4px, 4px 12px, 12px 4px, 4px 12px, 12px 4px, 4px 12px, 12px 4px, 4px 12px;
+	background-position: 0 0, 0 0, 100% 0, 100% 0, 0 100%, 0 100%, 100% 100%, 100% 100%;
+	border: 4px solid var(--rust);
+	box-shadow:
+		0 0 0 2px var(--bg),
+		0 0 0 4px color-mix(in srgb, var(--amber) 55%, transparent),
+		0 0 20px var(--glow);
+}
+
+.card::after {
+	content: '';
+	position: absolute;
+	left: -12px;
+	right: -12px;
+	bottom: -22px;
+	height: 8px;
+	background: var(--steel);
+	border-bottom: 3px solid color-mix(in srgb, var(--steel) 45%, var(--bg));
+}
+
+.card.winner {
+	box-shadow:
+		0 0 0 2px var(--bg),
+		0 0 0 4px var(--amber),
+		0 0 36px color-mix(in srgb, var(--amber) 55%, transparent);
+}
+
+.card h2 {
+	margin: 0 0 0.75rem;
+	font-size: 0.85rem;
+	line-height: 1.5;
+	color: var(--amber);
+	overflow-wrap: anywhere;
+}
+
+.card p {
+	margin: 0.2rem 0;
+}
+
+.graph-scroll {
+	margin-top: 0.75rem;
+	padding: 6px 2px 4px;
+	overflow-x: auto;
+	border-bottom: 3px solid var(--steel);
+}
+
+/* Kontrybucje: skrzynie ładunkowe w stosach (kolumna = tydzień) */
+
+.graph {
+	display: grid;
+	grid-template-rows: repeat(7, var(--cell));
+	grid-auto-columns: var(--cell);
+	gap: 1px;
+	width: max-content;
+	margin: 0 auto;
+}
+
+.day {
+	--crate: var(--rust);
+	width: var(--cell);
+	height: var(--cell);
+	background-color: var(--crate);
+	background-image:
+		linear-gradient(45deg, transparent 42%, color-mix(in srgb, var(--bg) 40%, transparent) 42% 58%, transparent 58%),
+		linear-gradient(-45deg, transparent 42%, color-mix(in srgb, var(--bg) 40%, transparent) 42% 58%, transparent 58%);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 55%, transparent);
+	transition: transform 90ms steps(2), filter 90ms steps(2);
+}
+
+.day[data-level='0'] {
+	--crate: color-mix(in srgb, var(--bg) 82%, var(--steel));
+	background-image: none;
+}
+
+.day[data-level='1'] {
+	--crate: color-mix(in srgb, var(--rust) 55%, var(--bg));
+}
+
+.day[data-level='3'] {
+	--crate: color-mix(in srgb, var(--rust) 45%, var(--amber));
+}
+
+.day[data-level='4'] {
+	--crate: var(--amber);
+}
+
+.day:hover {
+	position: relative;
+	z-index: 1;
+	transform: translateY(-2px);
+	filter: brightness(1.3);
+	outline: 1px solid var(--amber);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 70%, transparent), 0 0 6px var(--amber);
+}
+
+/* ---------- Plakietka VS na haku ---------- */
+
+.vs-rig {
+	position: relative;
+	min-height: 120px;
+	margin-bottom: 14px;
+}
+
+.vs-girder {
+	position: relative;
+	height: 28px;
+	background-color: color-mix(in srgb, var(--bg) 75%, var(--crane-dim));
+	background-image:
+		linear-gradient(45deg, transparent 44%, var(--crane-dim) 44% 56%, transparent 56%),
+		linear-gradient(-45deg, transparent 44%, var(--crane-dim) 44% 56%, transparent 56%);
+	background-size: var(--lattice) var(--lattice);
+	border-block: 4px solid var(--crane);
+}
+
+.vs-track {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+	justify-content: center;
+}
+
+.vs-carriage {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	animation: trolley 9s ease-in-out infinite alternate;
+}
+
+.vs-carriage .trolley {
+	position: relative;
+	top: -2px;
+	left: auto;
+	animation: none;
+}
+
+.vs-swing {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin-top: -2px;
+	transform-origin: top center;
+	animation: swing 5s ease-in-out infinite alternate;
+}
+
+@keyframes swing {
+	from {
+		transform: rotate(-3deg);
+	}
+	to {
+		transform: rotate(3deg);
+	}
+}
+
+.vs-box {
+	padding: 10px 14px;
+	font-size: 1rem;
+	color: var(--amber);
+	background: var(--bg);
+	border: 4px solid var(--steel);
+	box-shadow: 0 0 0 2px var(--rust), 0 0 18px var(--glow);
+}
+
+.verdict {
+	margin: 0.5rem 0 0;
+	font-size: 0.85rem;
+	line-height: 1.8;
+	text-align: center;
+	color: var(--amber);
+}
+
+/* ---------- Mniejsze ekrany i ograniczony ruch ---------- */
+
+@media (max-width: 40rem) {
+	.stage {
+		padding-inline: 32px;
+	}
+
+	.gate-sign {
+		padding: 6px 8px;
+		font-size: 0.5rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition: none !important;
+	}
+
+	.sky-layer,
+	.sky-landmarks {
+		transform: translateX(-50%);
+	}
+
+	.sky-landmarks {
+		transform: none;
+	}
+}

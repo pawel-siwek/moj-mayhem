@@ -1,0 +1,36 @@
+---
+const roof = (x: number, base: number, w: number) => {
+	const rects: [number, number, number, number][] = [];
+	for (let i = 0; w - 4 * i >= 2; i++) rects.push([x + 2 * i, base - 2 * (i + 1), w - 4 * i, 2]);
+	return rects;
+};
+const mainRoof = roof(14, 26, 28);
+const leftRoof = roof(2, 20, 14);
+const rightRoof = roof(40, 20, 14);
+---
+
+<svg
+	class="zuraw"
+	viewBox="0 0 60 60"
+	shape-rendering="crispEdges"
+	aria-hidden="true"
+	focusable="false"
+>
+	<rect class="z-brick" x="2" y="20" width="14" height="40"></rect>
+	<rect class="z-brick" x="40" y="20" width="14" height="40"></rect>
+	<rect class="z-wood" x="16" y="26" width="24" height="34"></rect>
+	{leftRoof.map(([x, y, w, h]) => <rect class="z-dark-roof" x={x} y={y} width={w} height={h} />)}
+	{rightRoof.map(([x, y, w, h]) => <rect class="z-dark-roof" x={x} y={y} width={w} height={h} />)}
+	{mainRoof.map(([x, y, w, h]) => <rect class="z-roof" x={x} y={y} width={w} height={h} />)}
+	<rect class="z-void" x="20" y="46" width="16" height="14"></rect>
+	<rect class="z-void" x="22" y="44" width="12" height="2"></rect>
+	<rect class="z-void" x="24" y="32" width="8" height="6"></rect>
+	<rect class="z-lit" x="7" y="28" width="3" height="4"></rect>
+	<rect class="z-lit" x="45" y="28" width="3" height="4"></rect>
+	<rect class="z-lit" x="7" y="40" width="3" height="4"></rect>
+	<rect class="z-lit" x="45" y="40" width="3" height="4"></rect>
+	<rect class="z-wood" x="40" y="22" width="6" height="2"></rect>
+	<rect class="z-wood" x="46" y="20" width="6" height="2"></rect>
+	<rect class="z-wood" x="52" y="18" width="6" height="2"></rect>
+	<rect class="z-steel" x="57" y="20" width="1" height="14"></rect>
+</svg>

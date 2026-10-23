@@ -1,0 +1,34 @@
+---
+const anchor = (cx: number, cy: number) =>
+	[
+		[cx, cy, 1, 7],
+		[cx - 2, cy + 1, 5, 1],
+		[cx - 3, cy + 4, 1, 3],
+		[cx + 3, cy + 4, 1, 3],
+		[cx - 2, cy + 7, 5, 1],
+	] as [number, number, number, number][];
+
+const parts: [number, number, number, number][] = [
+	[2, 66, 32, 6],
+	[4, 62, 28, 4],
+	[16, 2, 4, 64],
+	[10, 10, 16, 4],
+	[5, 22, 3, 44],
+	[1, 28, 11, 3],
+	[28, 22, 3, 44],
+	[24, 28, 11, 3],
+	...anchor(6, 34),
+	...anchor(29, 34),
+	...anchor(17, 16),
+];
+---
+
+<svg
+	class="monument"
+	viewBox="0 0 36 72"
+	shape-rendering="crispEdges"
+	aria-hidden="true"
+	focusable="false"
+>
+	{parts.map(([x, y, w, h]) => <rect x={x} y={y} width={w} height={h} />)}
+</svg>

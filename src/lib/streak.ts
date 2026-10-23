@@ -1,11 +1,4 @@
-export interface ContribDay {
-	count: number;
-}
-
-export interface ContribsResponse {
-	total_contributions: number;
-	weeks: { contribution_days: ContribDay[] }[];
-}
+import type { ContribsResponse } from './contributions';
 
 export function longestStreak(data: ContribsResponse): number {
 	let best = 0;

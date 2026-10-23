@@ -1,0 +1,122 @@
+---
+interface Props {
+	layer?: 'far' | 'near';
+}
+
+const { layer = 'near' } = Astro.props;
+
+const H = 80;
+const TILE = 360;
+type Rect = [number, number, number, number];
+
+const brick: Rect[] = [];
+const gold: Rect[] = [];
+const lit: Rect[] = [];
+
+let ox = 0;
+let mirror = false;
+
+const put = (target: Rect[], x: number, y: number, w: number, h: number) =>
+	target.push([ox + (mirror ? TILE - x - w : x), y, w, h]);
+const box = (x: number, top: number, w: number) => put(brick, x, top, w, H - top);
+
+// Szczyt schodkowy typowy dla gdańskich kamienic
+const gable = (x: number, w: number, top: number) => {
+	box(x, top + 8, w);
+	for (let i = 1; w - 4 * i >= 2; i++) put(brick, x + 2 * i, top + 8 - 2 * i, w - 4 * i, 2);
+};
+
+const spire = (cx: number, base: number, h: number, w: number, goldFrom = Infinity) => {
+	const n = Math.floor(h / 2);
+	for (let i = 0; i < n; i++) {
+		const ww = Math.max(1, Math.round(w * (1 - i / n)));
+		put(i >= goldFrom ? gold : brick, cx - Math.floor(ww / 2), base - 2 * (i + 1), ww, 2);
+	}
+};
+
+const filler = () => {
+	box(0, 66, TILE);
+	gable(4, 18, 50);
+	gable(24, 14, 46);
+	spire(46, 52, 22, 4);
+	gable(56, 20, 52);
+	gable(80, 12, 48);
+	spire(100, 50, 26, 4);
+	gable(110, 22, 54);
+	gable(136, 16, 46);
+	gable(156, 18, 50);
+	spire(186, 52, 20, 4);
+	gable(196, 24, 48);
+	gable(224, 14, 54);
+	gable(242, 20, 50);
+	spire(272, 50, 24, 5);
+	gable(282, 18, 46);
+	gable(304, 22, 52);
+	gable(330, 16, 48);
+};
+
+// Główne Miasto: Brama Zielona, Bazylika Mariacka, Ratusz, Dwór Artusa
+const landmarks = () => {
+	box(0, 66, TILE);
+	gable(8, 20, 48);
+	gable(30, 18, 44);
+	box(52, 46, 40);
+	spire(55, 46, 12, 4);
+	spire(89, 46, 12, 4);
+	box(112, 16, 24);
+	box(120, 40, 78);
+	box(124, 34, 70);
+	box(130, 30, 58);
+	spire(114, 16, 10, 2);
+	spire(134, 16, 10, 2);
+	spire(124, 16, 22, 4);
+	box(232, 52, 34);
+	box(242, 30, 14);
+	box(245, 20, 8);
+	spire(249, 20, 40, 8, 14);
+	spire(234, 52, 8, 2);
+	spire(264, 52, 8, 2);
+	gable(268, 26, 40);
+	gable(298, 18, 46);
+	gable(320, 20, 50);
+	gable(340, 16, 46);
+	for (const [x, y] of [
+		[138, 52],
+		[150, 52],
+		[166, 56],
+		[72, 56],
+		[80, 56],
+		[240, 60],
+		[250, 60],
+		[258, 60],
+		[276, 56],
+		[22, 60],
+		[326, 62],
+	]) {
+		put(lit, x, y, 1, 2);
+	}
+};
+
+const tiles = layer === 'near'
+	? [() => filler(), () => landmarks(), () => filler()]
+	: [() => filler(), () => filler(), () => filler()];
+
+tiles.forEach((draw, i) => {
+	ox = i * TILE;
+	mirror = layer === 'far' ? i % 2 === 0 : i === 2;
+	draw();
+});
+---
+
+<svg
+	class={`skyline skyline-${layer}`}
+	viewBox={`0 0 ${TILE * 3} ${H}`}
+	preserveAspectRatio="xMidYMax meet"
+	shape-rendering="crispEdges"
+	aria-hidden="true"
+	focusable="false"
+>
+	<g class="sk-brick">{brick.map(([x, y, w, h]) => <rect x={x} y={y} width={w} height={h} />)}</g>
+	<g class="sk-gold">{gold.map(([x, y, w, h]) => <rect x={x} y={y} width={w} height={h} />)}</g>
+	<g class="sk-lit">{lit.map(([x, y, w, h]) => <rect x={x} y={y} width={w} height={h} />)}</g>
+</svg>
