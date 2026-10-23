@@ -41,6 +41,8 @@ import Crest from '../components/Crest.astro';
 				<span class="gate-pylon"></span>
 			</div>
 
+			<button type="button" id="mute" class="secondary mute">🔊 Wycisz dźwięk</button>
+
 			<header class="title-wrap">
 				<h1><Crest />Mayhem w Stoczni</h1>
 				<p class="subtitle">Arena pojedynków na kontrybucje z GitHuba</p>
@@ -71,11 +73,21 @@ import Crest from '../components/Crest.astro';
 				</section>
 				<div class="quay" aria-hidden="true"></div>
 			</div>
+
+			<section class="history" aria-labelledby="history-title">
+				<div class="history-head">
+					<h2 id="history-title">Ostatnie pojedynki</h2>
+					<button type="button" id="clear-history" class="secondary" hidden>Wyczyść historię</button>
+				</div>
+				<p id="history-empty" class="status">Brak pojedynków w dzienniku stoczni.</p>
+				<ol id="history-list" class="history-list" hidden></ol>
+			</section>
 		</main>
 
 		<script>
 			import type { ContribsResponse } from '../lib/contributions';
 			import { longestStreak } from '../lib/streak';
+			import { isMuted, setMuted, playHorn, playBell, playExplosion } from '../lib/sound';
 
 			const form = document.querySelector<HTMLFormElement>('#duel-form')!;
 			const results = document.querySelector<HTMLElement>('#results')!;
@@ -93,6 +105,18 @@ import Crest from '../components/Crest.astro';
 				node.append(...children);
 				return node;
 			}
+
+			const muteButton = document.querySelector<HTMLButtonElement>('#mute')!;
+			function renderMute() {
+				const muted = isMuted();
+				muteButton.removeAttribute('aria-pressed');
+				muteButton.textContent = muted ? '🔇 Włącz dźwięk' : '🔊 Wycisz dźwięk';
+			}
+			muteButton.addEventListener('click', () => {
+				setMuted(!isMuted());
+				renderMute();
+			});
+			renderMute();
 
 			function showMessage(text: string, isError = false) {
 				results.replaceChildren(el('p', text, isError ? 'error' : 'status'));
@@ -135,12 +159,154 @@ import Crest from '../components/Crest.astro';
 				return scroll;
 			}
 
+			function renderLegend() {
+				const items: Node[] = [el('span', 'Mniej', 'legend-label')];
+				for (let level = 0; level <= 4; level++) {
+					const swatch = el('span', '', 'day legend-box');
+					swatch.dataset.level = String(level);
+					items.push(swatch);
+				}
+				items.push(el('span', 'Więcej', 'legend-label'));
+				const legend = box('legend', ...items);
+				legend.setAttribute('aria-hidden', 'true');
+				return legend;
+			}
+
+			function renderShare(names: string[], totals: number[]) {
+				const winner = totals[0] === totals[1] ? null : names[totals[0] > totals[1] ? 0 : 1];
+				const summary = [
+					'⚓ Mayhem w Stoczni — wynik pojedynku',
+					`${names[0]}: ${totals[0]} kontrybucji`,
+					`${names[1]}: ${totals[1]} kontrybucji`,
+					winner ? `🏆 Wygrywa: ${winner}` : '🤝 Remis!',
+				].join('\n');
+				const share = el('button', '📋 Udostępnij wynik', 'share');
+				(share as HTMLButtonElement).type = 'button';
+				const note = el('span', '', 'share-note');
+				note.setAttribute('role', 'status');
+				let timer: number | undefined;
+				share.addEventListener('click', async () => {
+					let ok = false;
+					try {
+						await navigator.clipboard.writeText(summary);
+						ok = true;
+					} catch {
+						// brak uprawnień lub Clipboard API
+					}
+					note.textContent = ok ? 'Skopiowano!' : 'Nie udało się skopiować.';
+					clearTimeout(timer);
+					timer = window.setTimeout(() => (note.textContent = ''), 2000);
+				});
+				return box('share-wrap', share, note);
+			}
+
 			function renderVsRig() {
 				const swing = box('vs-swing', el('span', '', 'rope'), el('span', '', 'hook'), el('div', 'VS', 'vs-box'));
 				const carriage = box('vs-carriage', el('span', '', 'trolley'), swing);
 				const rig = box('vs-rig', box('vs-girder'), box('vs-track', carriage));
 				rig.setAttribute('aria-hidden', 'true');
 				return rig;
+			}
+
+			const HISTORY_KEY = 'mayhem-history';
+			const HISTORY_MAX = 10;
+			interface DuelRecord {
+				players: [string, string];
+				totals: [number, number];
+				winner: string | null;
+				at: string;
+			}
+
+			function readHistory(): DuelRecord[] {
+				try {
+					const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]');
+					if (!Array.isArray(parsed)) return [];
+					return parsed
+						.filter(
+							(r): r is DuelRecord =>
+								!!r &&
+								Array.isArray(r.players) &&
+								Array.isArray(r.totals) &&
+								r.players.length === 2 &&
+								r.totals.length === 2 &&
+								typeof r.at === 'string',
+						)
+						.slice(0, HISTORY_MAX);
+				} catch {
+					return [];
+				}
+			}
+
+			function writeHistory(list: DuelRecord[]) {
+				try {
+					localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+				} catch {
+					// brak dostępu do localStorage (np. tryb prywatny) — historia po prostu się nie zapisze
+				}
+			}
+
+			const historyList = document.querySelector<HTMLOListElement>('#history-list')!;
+			const historyEmpty = document.querySelector<HTMLElement>('#history-empty')!;
+			const clearButton = document.querySelector<HTMLButtonElement>('#clear-history')!;
+
+			function renderHistory() {
+				const list = readHistory();
+				historyList.hidden = list.length === 0;
+				historyEmpty.hidden = list.length > 0;
+				clearButton.hidden = list.length === 0;
+				historyList.replaceChildren(
+					...list.map((r) => {
+						const when = new Date(r.at);
+						const time = el('time', Number.isNaN(+when) ? '' : when.toLocaleString('pl-PL'), 'history-time');
+						time.setAttribute('datetime', String(r.at));
+						const li = el('li', '', 'history-item');
+						li.append(
+							el('span', `${r.players[0]} (${r.totals[0]}) vs ${r.players[1]} (${r.totals[1]})`, 'history-match'),
+							el('span', r.winner ? `🏆 ${r.winner}` : '🤝 Remis', 'history-winner'),
+							time,
+						);
+						return li;
+					}),
+				);
+			}
+
+			function saveDuel(names: string[], totals: number[]) {
+				const record: DuelRecord = {
+					players: [names[0], names[1]],
+					totals: [totals[0], totals[1]],
+					winner: totals[0] === totals[1] ? null : names[totals[0] > totals[1] ? 0 : 1],
+					at: new Date().toISOString(),
+				};
+				writeHistory([record, ...readHistory()].slice(0, HISTORY_MAX));
+				renderHistory();
+			}
+
+			clearButton.addEventListener('click', () => {
+				try {
+					localStorage.removeItem(HISTORY_KEY);
+				} catch {
+					// ignorujemy brak dostępu do localStorage
+				}
+				renderHistory();
+			});
+			renderHistory();
+
+			function renderBanner(names: string[], totals: number[]) {
+				const tie = totals[0] === totals[1];
+				const text = tie ? '🤝 REMIS! 🤝' : `🏆 ${names[totals[0] > totals[1] ? 0 : 1]} WYGRYWA! 🏆`;
+				const banner = box('verdict ' + (tie ? 'tie' : 'win'), el('span', text, 'verdict-text'));
+				const confetti = box('confetti');
+				confetti.setAttribute('aria-hidden', 'true');
+				for (let i = 0; i < 24; i++) {
+					const bit = el('span', '', 'confetti-bit');
+					bit.style.setProperty('--x', `${(i * 37) % 100}%`);
+					bit.style.setProperty('--d', `${((i * 53) % 20) / 10}s`);
+					bit.style.setProperty('--t', `${2.4 + ((i * 7) % 10) / 10}s`);
+					bit.dataset.level = String((i % 4) + 1);
+					confetti.append(bit);
+				}
+				banner.append(confetti);
+				return banner;
 			}
 
 			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -235,6 +401,34 @@ import Crest from '../components/Crest.astro';
 				results.replaceChildren(wrap);
 			}
 
+			const COUNTDOWN_STEPS = ['3...', '2...', '1...', '⚡ WALCZ! ⚡'];
+			const STEP_MS = 1000;
+
+			function startCountdown() {
+				if (matchMedia('(prefers-reduced-motion: reduce)').matches) return { done: Promise.resolve(), cancel() {} };
+				const text = el('p', COUNTDOWN_STEPS[0], 'countdown-text');
+				const overlay = box('countdown', text);
+				overlay.setAttribute('aria-hidden', 'true');
+				document.body.append(overlay);
+				let cancelled = false;
+				const done = (async () => {
+					for (let i = 0; i < COUNTDOWN_STEPS.length; i++) {
+						if (cancelled) return;
+						// nowy węzeł restartuje animację kroku
+						const step = el('p', COUNTDOWN_STEPS[i], i === COUNTDOWN_STEPS.length - 1 ? 'countdown-text go' : 'countdown-text');
+						overlay.replaceChildren(step);
+						await new Promise((r) => setTimeout(r, STEP_MS));
+					}
+				})().finally(() => overlay.remove());
+				return {
+					done,
+					cancel() {
+						cancelled = true;
+						overlay.remove();
+					},
+				};
+			}
+
 			form.addEventListener('submit', async (event) => {
 				event.preventDefault();
 				const names = inputs.map((i) => i.value.trim());
@@ -248,20 +442,32 @@ import Crest from '../components/Crest.astro';
 					return;
 				}
 
+				playHorn();
 				button.disabled = true;
 				results.setAttribute('aria-busy', 'true');
 				showLoading();
+				const countdown = startCountdown();
 				try {
 					const settled = await Promise.allSettled(names.map(load));
 					const failures = settled.flatMap((r) =>
 						r.status === 'rejected' ? [r.reason instanceof Error ? r.reason.message : 'Wystąpił nieoczekiwany błąd.'] : [],
 					);
 					if (failures.length) {
+						countdown.cancel();
 						showLoadErrors(failures);
+						playExplosion();
 						return;
 					}
 					const data = settled.map((r) => (r as PromiseFulfilledResult<ContribsResponse>).value);
 					const totals = data.map((d) => d.total_contributions);
+
+					await countdown.done;
+					try {
+						saveDuel(names, totals);
+					} catch {
+						// historia nie może blokować wyników
+					}
+					playBell();
 
 					const cards = data.map((d, i) => {
 						const card = el('div', '', 'card');
@@ -274,23 +480,22 @@ import Crest from '../components/Crest.astro';
 							title,
 							el('p', `Kontrybucje: ${totals[i]}`),
 							el('p', `Zakres dat: ${d.from} – ${d.to}`),
-							el('p', `Najdłuższa seria: ${longestStreak(d)} dni`),
 							renderGraph(d, names[i]),
+							renderLegend(),
+							el('p', `🔥 Najdłuższa seria: ${longestStreak(d)} dni`, 'streak'),
 						);
 						return card;
 					});
 
-					const verdict =
-						totals[0] === totals[1]
-							? 'Remis!'
-							: `Wygrywa ${totals[0] > totals[1] ? names[0] : names[1]}! Bursztyn dla zwycięzcy`;
-
 					results.replaceChildren(
-						box('cards', cards[0], renderVsRig(), cards[1]),
-						el('p', verdict, 'verdict'),
+						box('cards reveal', cards[0], renderVsRig(), cards[1]),
+						renderBanner(names, totals),
+						renderShare(names, totals),
 					);
 				} catch (err) {
+					countdown.cancel();
 					showMessage(err instanceof Error ? err.message : 'Wystąpił błąd.', true);
+					playExplosion();
 				} finally {
 					button.disabled = false;
 					results.setAttribute('aria-busy', 'false');

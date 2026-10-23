@@ -862,6 +862,12 @@ input[aria-invalid='true'] {
 	margin: 0.2rem 0;
 }
 
+.card .streak {
+	margin-top: 0.75rem;
+	color: var(--amber);
+	font-weight: 700;
+}
+
 .graph-scroll {
 	margin-top: 0.75rem;
 	padding: 6px 2px 4px;
@@ -916,6 +922,40 @@ input[aria-invalid='true'] {
 	filter: brightness(1.3);
 	outline: 1px solid var(--amber);
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 70%, transparent), 0 0 6px var(--amber);
+}
+
+.legend {
+	display: flex;
+	gap: 3px;
+	align-items: center;
+	justify-content: center;
+	margin-top: 0.5rem;
+	font-size: 0.75rem;
+	color: var(--steel);
+}
+
+.legend-label {
+	margin: 0 0.25rem;
+}
+
+.legend-box:hover {
+	transform: none;
+	filter: none;
+	outline: 0;
+}
+
+.share-wrap {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+	justify-content: center;
+	margin-top: 1rem;
+}
+
+.share-note {
+	min-width: 8rem;
+	color: var(--crane);
+	font-weight: 700;
 }
 
 /* ---------- Plakietka VS na haku ---------- */
@@ -988,11 +1028,264 @@ input[aria-invalid='true'] {
 }
 
 .verdict {
-	margin: 0.5rem 0 0;
+	position: relative;
+	overflow: hidden;
+	margin: 1rem auto 0;
+	padding: 1rem 1.25rem;
+	max-width: 44rem;
 	font-size: 0.85rem;
 	line-height: 1.8;
 	text-align: center;
+	color: var(--text);
+	background: color-mix(in srgb, var(--bg) 85%, var(--amber));
+	border: 4px solid var(--amber);
+	box-shadow: 6px 6px 0 var(--rust);
+	transform-origin: top center;
+	animation: banner-drop 0.9s steps(9) both;
+}
+
+.verdict.tie {
+	border-color: var(--steel);
+	box-shadow: 6px 6px 0 color-mix(in srgb, var(--steel) 50%, var(--bg));
+}
+
+.verdict-text {
+	position: relative;
+	z-index: 1;
+	display: inline-block;
 	color: var(--amber);
+}
+
+.verdict.tie .verdict-text {
+	color: var(--steel);
+}
+
+/* Pasek światła przesuwa się po tle baneru, tekst pozostaje nieruchomy. */
+.verdict::before {
+	content: '';
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 25%;
+	background: color-mix(in srgb, var(--amber) 22%, transparent);
+	transform: translateX(-100%) skewX(-20deg);
+	animation: banner-sweep 3.2s steps(16) 0.9s infinite;
+}
+
+.verdict.tie::before {
+	background: color-mix(in srgb, var(--steel) 22%, transparent);
+}
+
+.confetti {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.confetti-bit {
+	position: absolute;
+	top: -12px;
+	left: var(--x);
+	width: 8px;
+	height: 8px;
+	background: var(--amber);
+	opacity: 0;
+	animation: confetti-fall var(--t) steps(10) var(--d) infinite;
+}
+
+.confetti-bit[data-level='1'] {
+	background: var(--crane);
+}
+
+.confetti-bit[data-level='2'] {
+	background: var(--rust);
+}
+
+.confetti-bit[data-level='3'] {
+	background: var(--steel);
+}
+
+.verdict.tie .confetti {
+	display: none;
+}
+
+@keyframes banner-drop {
+	0% {
+		transform: translateY(-140%) scaleY(1.15);
+		opacity: 0;
+	}
+	70% {
+		transform: translateY(6%) scaleY(0.95);
+		opacity: 1;
+	}
+	100% {
+		transform: none;
+		opacity: 1;
+	}
+}
+
+@keyframes banner-sweep {
+	0% {
+		transform: translateX(-100%) skewX(-20deg);
+	}
+	50%,
+	100% {
+		transform: translateX(450%) skewX(-20deg);
+	}
+}
+
+@keyframes confetti-fall {
+	0% {
+		transform: translateY(0) rotate(0);
+		opacity: 1;
+	}
+	100% {
+		transform: translateY(130px) rotate(180deg);
+		opacity: 0;
+	}
+}
+
+/* ---------- Dziennik pojedynków ---------- */
+
+.history {
+	margin-top: 2.5rem;
+	padding: 1rem;
+	background: color-mix(in srgb, var(--bg) 88%, var(--steel));
+	border: 3px solid var(--steel);
+	box-shadow: 6px 6px 0 color-mix(in srgb, var(--steel) 40%, var(--bg));
+}
+
+.history-head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.history h2 {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--amber);
+}
+
+button.secondary {
+	padding: 0.5rem 0.8rem;
+	font-size: 0.6rem;
+	color: var(--text);
+	background: var(--rust);
+	box-shadow: 0 3px 0 color-mix(in srgb, var(--rust) 50%, var(--bg)), 0 0 0 2px var(--bg);
+}
+
+button.mute {
+	display: block;
+	margin: 0 0 0.75rem auto;
+}
+
+button.secondary:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--rust) 85%, var(--text));
+}
+
+.history-list {
+	margin: 0.75rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.history-item {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 1rem;
+	align-items: baseline;
+	padding: 0.5rem 0;
+	border-top: 2px dashed color-mix(in srgb, var(--steel) 50%, transparent);
+	overflow-wrap: anywhere;
+}
+
+.history-match {
+	flex: 1 1 14rem;
+}
+
+.history-winner {
+	color: var(--amber);
+	font-weight: 700;
+}
+
+.history-time {
+	color: var(--steel);
+	font-size: 0.8rem;
+}
+
+/* ---------- Odliczanie przed pojedynkiem ---------- */
+
+.countdown {
+	position: fixed;
+	inset: 0;
+	z-index: 100;
+	display: grid;
+	place-items: center;
+	background: color-mix(in srgb, var(--bg) 88%, transparent);
+}
+
+.countdown-text {
+	margin: 0;
+	padding: 1rem;
+	font-family: var(--font-pixel);
+	font-size: clamp(2.5rem, 12vw, 6rem);
+	text-align: center;
+	color: var(--amber);
+	text-shadow: 6px 6px 0 var(--rust);
+	animation: count-pop 1s steps(8) both;
+}
+
+.countdown-text.go {
+	font-size: clamp(1.25rem, 6vw, 3rem);
+	color: var(--crane);
+	text-shadow: 4px 4px 0 var(--bg);
+}
+
+.reveal .card:first-child {
+	animation: slide-left 0.7s steps(8) both;
+}
+
+.reveal .card:last-child {
+	animation: slide-right 0.7s steps(8) both;
+}
+
+@keyframes count-pop {
+	0% {
+		transform: scale(2);
+		opacity: 0;
+	}
+	30% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	100% {
+		transform: scale(0.85);
+		opacity: 1;
+	}
+}
+
+@keyframes slide-left {
+	from {
+		transform: translateX(-120%);
+		opacity: 0;
+	}
+	to {
+		transform: none;
+		opacity: 1;
+	}
+}
+
+@keyframes slide-right {
+	from {
+		transform: translateX(120%);
+		opacity: 0;
+	}
+	to {
+		transform: none;
+		opacity: 1;
+	}
 }
 
 /* ---------- Mniejsze ekrany i ograniczony ruch ---------- */
