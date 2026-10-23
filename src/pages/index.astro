@@ -44,6 +44,9 @@ import Crest from '../components/Crest.astro';
 				<h1><Crest />Mayhem w Stoczni</h1>
 				<p class="subtitle">Arena pojedynków na kontrybucje z GitHuba</p>
 				<p class="place">Nabrzeże Motławy, noc</p>
+				<button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
+					Bałtycki świt: wyłączony
+				</button>
 			</header>
 
 			<form id="duel-form" class="console" novalidate>
@@ -79,6 +82,29 @@ import Crest from '../components/Crest.astro';
 			const form = document.querySelector<HTMLFormElement>('#duel-form')!;
 			const results = document.querySelector<HTMLElement>('#results')!;
 			const button = form.querySelector('button')!;
+			const themeToggle = document.querySelector<HTMLButtonElement>('#theme-toggle')!;
+			const place = document.querySelector<HTMLElement>('.place')!;
+			const themeStorageKey = 'mayhem-theme';
+
+			function setTheme(useDawn: boolean) {
+				document.documentElement.dataset.theme = useDawn ? 'dawn' : 'night';
+				themeToggle.setAttribute('aria-pressed', String(useDawn));
+				themeToggle.textContent = `Bałtycki świt: ${useDawn ? 'włączony' : 'wyłączony'}`;
+				place.textContent = `Nabrzeże Motławy, ${useDawn ? 'świt' : 'noc'}`;
+				try {
+					localStorage.setItem(themeStorageKey, useDawn ? 'dawn' : 'night');
+				} catch {}
+			}
+
+			let useDawnTheme = false;
+			try {
+				useDawnTheme = localStorage.getItem(themeStorageKey) === 'dawn';
+			} catch {}
+			setTheme(useDawnTheme);
+			themeToggle.addEventListener('click', () => {
+				useDawnTheme = !useDawnTheme;
+				setTheme(useDawnTheme);
+			});
 
 			function el(tag: string, text: string, className?: string) {
 				const node = document.createElement(tag);
