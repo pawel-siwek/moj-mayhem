@@ -11,7 +11,159 @@
 		<title>Mayhem w Stoczni</title>
 	</head>
 	<body>
-		<h1>Mayhem w Stoczni</h1>
-		<p>Witaj w Mayhem w Stoczni! Czas zbudować arenę pojedynków na kontrybucje z GitHuba.</p>
+		<main>
+			<h1>Mayhem w Stoczni</h1>
+			<p>Arena pojedynków na kontrybucje z GitHuba</p>
+
+			<form id="duel-form">
+				<div class="field">
+					<label for="player1">Gracz 1</label>
+					<input id="player1" name="player1" autocomplete="off" required />
+				</div>
+				<div class="field">
+					<label for="player2">Gracz 2</label>
+					<input id="player2" name="player2" autocomplete="off" required />
+				</div>
+				<button type="submit">Walcz!</button>
+			</form>
+
+			<section id="results" aria-live="polite"></section>
+		</main>
+
+		<script>
+			import { longestStreak, type ContribsResponse } from '../lib/streak';
+
+			const form = document.querySelector<HTMLFormElement>('#duel-form')!;
+			const results = document.querySelector<HTMLElement>('#results')!;
+			const button = form.querySelector('button')!;
+
+			function el(tag: string, text: string, className?: string) {
+				const node = document.createElement(tag);
+				node.textContent = text;
+				if (className) node.className = className;
+				return node;
+			}
+
+			function showMessage(text: string, isError = false) {
+				results.replaceChildren(el('p', text, isError ? 'error' : 'status'));
+			}
+
+			async function load(name: string): Promise<ContribsResponse> {
+				let res: Response;
+				try {
+					res = await fetch(`/api/contributions/${encodeURIComponent(name)}`);
+				} catch {
+					throw new Error('Nie udało się pobrać danych. Spróbuj ponownie.');
+				}
+				if (!res.ok) {
+					const body = await res.json().catch(() => null);
+					throw new Error(`${name}: ${body?.error ?? 'Nie udało się pobrać danych.'}`);
+				}
+				return res.json();
+			}
+
+			form.addEventListener('submit', async (event) => {
+				event.preventDefault();
+				const names = [
+					(form.elements.namedItem('player1') as HTMLInputElement).value.trim(),
+					(form.elements.namedItem('player2') as HTMLInputElement).value.trim(),
+				];
+
+				if (!names[0] || !names[1]) {
+					showMessage('Podaj nazwy obu graczy.', true);
+					return;
+				}
+				if (names[0].toLowerCase() === names[1].toLowerCase()) {
+					showMessage('Wybierz dwóch różnych graczy.', true);
+					return;
+				}
+
+				button.disabled = true;
+				showMessage('Ładowanie…');
+				try {
+					const data = await Promise.all(names.map(load));
+					const totals = data.map((d) => d.total_contributions);
+
+					const cards = data.map((d, i) => {
+						const card = el('div', '', 'card');
+						if (totals[i] > totals[1 - i]) card.classList.add('winner');
+						card.append(
+							el('h2', names[i]),
+							el('p', `Kontrybucje: ${totals[i]}`),
+							el('p', `Najdłuższa seria: ${longestStreak(d)} dni`),
+						);
+						return card;
+					});
+
+					const verdict =
+						totals[0] === totals[1]
+							? 'Remis!'
+							: `Wygrywa ${totals[0] > totals[1] ? names[0] : names[1]}!`;
+
+					const row = el('div', '', 'cards');
+					row.append(...cards);
+					results.replaceChildren(row, el('p', verdict, 'verdict'));
+				} catch (err) {
+					showMessage(err instanceof Error ? err.message : 'Wystąpił błąd.', true);
+				} finally {
+					button.disabled = false;
+				}
+			});
+		</script>
+
+		<style>
+			body {
+				font-family: system-ui, sans-serif;
+				margin: 0;
+				padding: 2rem 1rem;
+			}
+			main {
+				max-width: 40rem;
+				margin: 0 auto;
+			}
+			form {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 1rem;
+				align-items: flex-end;
+				margin: 1.5rem 0;
+			}
+			.field {
+				display: flex;
+				flex-direction: column;
+				gap: 0.25rem;
+				flex: 1 1 10rem;
+			}
+			input,
+			button {
+				font: inherit;
+				padding: 0.5rem 0.75rem;
+			}
+			button {
+				cursor: pointer;
+			}
+			.cards {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 1rem;
+			}
+			.card {
+				flex: 1 1 12rem;
+				border: 1px solid #ccc;
+				border-radius: 0.5rem;
+				padding: 0.5rem 1rem;
+			}
+			.card.winner {
+				border-color: #216e39;
+				background: #f0faf2;
+			}
+			.verdict {
+				font-size: 1.25rem;
+				font-weight: bold;
+			}
+			.error {
+				color: #b42318;
+			}
+		</style>
 	</body>
 </html>
