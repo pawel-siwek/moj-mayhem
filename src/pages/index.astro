@@ -22,6 +22,7 @@ import Crest from '../components/Crest.astro';
 		<title>Mayhem w Stoczni</title>
 	</head>
 	<body>
+		<a class="skip-link" href="#results">Przejdź do wyników</a>
 		<div class="sky" aria-hidden="true">
 			<div class="stars"></div>
 			<div class="sky-layer layer-far"><Skyline layer="far" /></div>
@@ -65,7 +66,7 @@ import Crest from '../components/Crest.astro';
 				</div>
 				<div class="gantry-leg left" aria-hidden="true"></div>
 				<div class="gantry-leg right" aria-hidden="true"></div>
-				<section id="results" aria-live="polite">
+				<section id="results" aria-live="polite" aria-busy="false" tabindex="-1" aria-label="Wyniki pojedynku">
 					<p class="status">Podaj dwóch graczy i naciśnij „Walcz!”</p>
 				</section>
 				<div class="quay" aria-hidden="true"></div>
@@ -127,7 +128,11 @@ import Crest from '../components/Crest.astro';
 						graph.append(cell);
 					}
 				});
-				return box('graph-scroll', graph);
+				const scroll = box('graph-scroll', graph);
+				scroll.tabIndex = 0;
+				scroll.setAttribute('role', 'region');
+				scroll.setAttribute('aria-label', `Wykres kontrybucji użytkownika ${name} (przewijany)`);
+				return scroll;
 			}
 
 			function renderVsRig() {
@@ -160,40 +165,102 @@ import Crest from '../components/Crest.astro';
 				);
 			}
 
+			const USERNAME_RE = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+			const inputs = [
+				form.elements.namedItem('player1') as HTMLInputElement,
+				form.elements.namedItem('player2') as HTMLInputElement,
+			];
+
+			function clearFieldError(input: HTMLInputElement) {
+				input.removeAttribute('aria-invalid');
+				input.removeAttribute('aria-describedby');
+				document.getElementById(`${input.id}-error`)?.remove();
+			}
+
+			function setFieldError(input: HTMLInputElement, text: string) {
+				clearFieldError(input);
+				const msg = el('p', text, 'field-error');
+				msg.id = `${input.id}-error`;
+				input.after(msg);
+				input.setAttribute('aria-invalid', 'true');
+				input.setAttribute('aria-describedby', msg.id);
+			}
+
+			function validate(names: string[]) {
+				const errors: (string | null)[] = names.map((n) => {
+					if (!n) return 'Podaj nazwę użytkownika GitHuba.';
+					if (!USERNAME_RE.test(n))
+						return 'Nazwa może mieć 1–39 znaków: litery, cyfry i pojedyncze myślniki (nie na początku ani końcu).';
+					return null;
+				});
+				if (!errors[0] && !errors[1] && names[0].toLowerCase() === names[1].toLowerCase()) {
+					errors[1] = 'Wybierz innego stoczniowca niż Gracz 1 — nie można walczyć z samym sobą.';
+				}
+				return errors;
+			}
+
+			for (const input of inputs) input.addEventListener('input', () => clearFieldError(input));
+
 			async function load(name: string): Promise<ContribsResponse> {
 				let res: Response;
 				try {
 					res = await fetch(`/api/contributions/${encodeURIComponent(name)}`);
 				} catch {
-					throw new Error('Nie udało się pobrać danych. Spróbuj ponownie.');
+					throw new Error(`Brak łączności z portem — nie udało się pobrać danych stoczniowca „${name}”. Sprawdź połączenie i spróbuj ponownie.`);
 				}
 				if (!res.ok) {
-					const body = await res.json().catch(() => null);
-					throw new Error(`${name}: ${body?.error ?? 'Nie udało się pobrać danych.'}`);
+					const messages: Record<number, string> = {
+						400: `Nazwa „${name}” jest niepoprawna — takiej nie wpiszemy do rejestru stoczni.`,
+						404: `Nie znaleziono stoczniowca „${name}”. Sprawdź pisownię nazwy.`,
+						429: `Za duży ruch w porcie — GitHub chwilowo ogranicza zapytania (stoczniowiec „${name}”). Odczekaj chwilę i spróbuj ponownie.`,
+						502: `Brama GitHuba nie odpowiada poprawnie — nie udało się pobrać danych stoczniowca „${name}”. Spróbuj za chwilę.`,
+						504: `Upłynął czas oczekiwania na dane stoczniowca „${name}”. Spróbuj ponownie.`,
+					};
+					throw new Error(messages[res.status] ?? `Nie udało się pobrać danych stoczniowca „${name}” (kod ${res.status}).`);
 				}
-				return res.json();
+				try {
+					return await res.json();
+				} catch {
+					throw new Error(`Dane stoczniowca „${name}” dotarły uszkodzone (niepoprawny JSON). Spróbuj ponownie.`);
+				}
+			}
+
+			function showLoadErrors(messages: string[]) {
+				const wrap = el('div', '', 'error');
+				wrap.setAttribute('role', 'alert');
+				wrap.append(el('p', messages.length > 1 ? 'Awaria przy obu graczach:' : 'Awaria w stoczni:', 'error-title'));
+				const list = el('ul', '', 'error-list');
+				for (const m of messages) list.append(el('li', m));
+				wrap.append(list);
+				results.replaceChildren(wrap);
 			}
 
 			form.addEventListener('submit', async (event) => {
 				event.preventDefault();
-				const names = [
-					(form.elements.namedItem('player1') as HTMLInputElement).value.trim(),
-					(form.elements.namedItem('player2') as HTMLInputElement).value.trim(),
-				];
+				const names = inputs.map((i) => i.value.trim());
 
-				if (!names[0] || !names[1]) {
-					showMessage('Podaj nazwy obu graczy.', true);
-					return;
-				}
-				if (names[0].toLowerCase() === names[1].toLowerCase()) {
-					showMessage('Wybierz dwóch różnych graczy.', true);
+				const errors = validate(names);
+				inputs.forEach((input, i) => (errors[i] ? setFieldError(input, errors[i]!) : clearFieldError(input)));
+				const firstInvalid = inputs.find((_, i) => errors[i]);
+				if (firstInvalid) {
+					showMessage('Popraw zaznaczone pola i spróbuj ponownie.');
+					firstInvalid.focus();
 					return;
 				}
 
 				button.disabled = true;
+				results.setAttribute('aria-busy', 'true');
 				showLoading();
 				try {
-					const data = await Promise.all(names.map(load));
+					const settled = await Promise.allSettled(names.map(load));
+					const failures = settled.flatMap((r) =>
+						r.status === 'rejected' ? [r.reason instanceof Error ? r.reason.message : 'Wystąpił nieoczekiwany błąd.'] : [],
+					);
+					if (failures.length) {
+						showLoadErrors(failures);
+						return;
+					}
+					const data = settled.map((r) => (r as PromiseFulfilledResult<ContribsResponse>).value);
 					const totals = data.map((d) => d.total_contributions);
 
 					const cards = data.map((d, i) => {
@@ -226,6 +293,8 @@ import Crest from '../components/Crest.astro';
 					showMessage(err instanceof Error ? err.message : 'Wystąpił błąd.', true);
 				} finally {
 					button.disabled = false;
+					results.setAttribute('aria-busy', 'false');
+					results.focus({ preventScroll: true });
 				}
 			});
 		</script>

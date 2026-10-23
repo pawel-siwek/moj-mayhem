@@ -526,9 +526,32 @@ input {
 }
 
 input:focus {
-	outline: none;
 	border-color: var(--amber);
 	box-shadow: 0 0 0 2px var(--rust), 0 0 12px var(--glow);
+}
+
+:focus-visible {
+	outline: 3px solid var(--amber);
+	outline-offset: 3px;
+}
+
+#results:focus {
+	outline: none;
+}
+
+.skip-link {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 100;
+	padding: 0.6rem 1rem;
+	color: var(--bg);
+	background: var(--amber);
+	transform: translateY(-120%);
+}
+
+.skip-link:focus {
+	transform: none;
 }
 
 button {
@@ -674,6 +697,36 @@ button:disabled {
 	padding-left: 1.75rem;
 	background: color-mix(in srgb, var(--rust) 25%, var(--bg));
 	border: 2px solid var(--rust);
+}
+
+.field-error {
+	margin: 0;
+	font-size: 0.75rem;
+	color: var(--text);
+	border-left: 4px solid var(--rust);
+	padding-left: 0.5rem;
+}
+
+.field-error::before {
+	content: '⚠ Błąd: ';
+	font-weight: 700;
+	color: var(--amber);
+}
+
+input[aria-invalid='true'] {
+	border-color: var(--rust);
+	border-style: dashed;
+}
+
+.error-list {
+	margin: 0.5rem 0 0;
+	padding-left: 1.25rem;
+}
+
+.error-title {
+	margin: 0;
+	font-weight: 700;
+	color: var(--amber);
 }
 
 .error::before {
@@ -944,6 +997,47 @@ button:disabled {
 
 /* ---------- Mniejsze ekrany i ograniczony ruch ---------- */
 
+@media (max-width: 1024px) {
+	.cards {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.card {
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.stage {
+		padding-inline: 32px;
+	}
+
+	.vs-rig {
+		min-height: 110px;
+	}
+
+	.vs-track {
+		overflow: hidden;
+	}
+}
+
+@media (max-width: 600px) {
+	.console {
+		flex-direction: column;
+		flex-wrap: nowrap;
+		align-items: stretch;
+	}
+
+	.field {
+		flex: none;
+		width: 100%;
+	}
+
+	.console button {
+		width: 100%;
+	}
+}
+
 @media (max-width: 40rem) {
 	.stage {
 		padding-inline: 32px;
@@ -961,6 +1055,10 @@ button:disabled {
 	*::after {
 		animation: none !important;
 		transition: none !important;
+	}
+
+	html {
+		scroll-behavior: auto !important;
 	}
 
 	.sky-layer,
